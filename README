@@ -1,0 +1,5 @@
+mock WebDAV implementation for development purposes
+
+supports `GET` (incl. ETags), `PUT` and `PROPFIND`
+
+NB: This is not intended for serious use!
