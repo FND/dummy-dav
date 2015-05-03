@@ -1,6 +1,10 @@
 {
   "name": "dummy-dav",
   "description": "mock WebDAV implementation for development purposes",
+  "version": "0.0.1",
   "license": "MIT",
-  "main": "index.js"
+  "bin": "server.js",
+  "scripts": {
+    "server": "node server.js"
+  }
 }

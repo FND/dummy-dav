@@ -1,15 +1,9 @@
 /*jslint vars: true, node: true, white: true */
 "use strict";
 
-var http = require("http");
 var fs = require("fs");
 var path = require("path");
 var crypto = require("crypto");
-
-var args = process.argv.slice(2);
-var host = args[1] || "localhost";
-var port = args[0] || 8000;
-console.log("→ http://" + host + ":" + port);
 
 var handlers = {
 	"PROPFIND": directoryIndex,
@@ -17,7 +11,7 @@ var handlers = {
 	"PUT": writeFile
 };
 
-http.createServer(dispatch).listen(port);
+module.exports = dispatch;
 
 function dispatch(req, res) {
 	var handler = handlers[req.method];
