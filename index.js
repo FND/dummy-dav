@@ -65,39 +65,43 @@ function directoryIndex(req, res) {
 }
 
 function readFile(req, res) {
-	var filename = determinePath(req.url);
-	fs.readFile(filename, function(err, contents) {
+	getFile(req.url, function(err, file) {
 		if(err) {
 			res.writeHead(404, "Not Found");
-			res.end("failed to read file\n");
+			res.end();
 		} else {
-			var etag = crypto.createHash("md5");
-			etag.update(contents);
-			res.writeHead(200, "OK", {
-				ETag: etag.digest("hex")
-			}); // TODO: Content-Type
-			res.end(contents); // TODO: encoding?
+			res.writeHead(200, "OK", { ETag: file.hash }); // TODO: Content-Type
+			res.end(file.contents); // TODO: encoding?
 		}
 	});
 }
 
-function writeFile(req, res) {
-	var filename = determinePath(req.url);
+function writeFile(req, res, filepath) {
+	// validate ETag if present
+	// TODO: require/support `If-None-Match: *` for newly created files?
+	var etag = req.headers["if-match"];
+	if(!filepath && etag) {
+		getFile(req.url, function(err, file) {
+			if(file.hash === etag) { // XXX: race condition for concurrent requests
+				writeFile(req, res, file.path); // XXX: overloading; too implicit
+			} else {
+				res.writeHead(412, "Precondition Failed");
+				res.end();
+			}
+		});
+		return;
+	}
 
-	var chunks = [];
-	req.on("data", function(chunk) { // TODO: Content-Length support
-		chunks.push(chunk);
-		if(chunks.length > 1e6) { // >1 MB; assume misbehaved client
-			req.connection.destroy();
-		}
-	});
-	req.on("end", function() {
-		fs.writeFile(filename, Buffer.concat(chunks), function(err) {
+	if(!filepath) {
+		filepath = determinePath(req.url);
+	}
+	readInput(req, function(data) {
+		fs.writeFile(filepath, data, function(err) {
 			if(err) {
 				res.writeHead(400, "Bad Request");
 				res.end("failed to write file\n");
 			} else {
-				res.writeHead(204, "OK", { "Content-Type": "text/plain" });
+				res.writeHead(204, "No Content");
 				res.end();
 			}
 		});
@@ -115,6 +119,38 @@ function generateDirectoryIndex(entries) {
 	});
 	return ['<?xml version="1.0" encoding="utf-8"?><multistatus xmlns="DAV:">'].
 		concat(responses, "</multistatus>").join("");
+}
+
+function getFile(uri, callback) { // TODO: rename
+	var filepath = determinePath(uri);
+	fs.readFile(filepath, function(err, contents) {
+		if(err) {
+			callback(new Error("failed to read file"), {
+				path: filepath
+			});
+		} else {
+			var hash = crypto.createHash("md5");
+			hash.update(contents);
+			callback(null, {
+				path: filepath,
+				hash: hash.digest("hex"),
+				contents: contents
+			});
+		}
+	});
+}
+
+function readInput(req, callback) {
+	var chunks = [];
+	req.on("data", function(chunk) { // TODO: Content-Length support
+		chunks.push(chunk);
+		if(chunks.length > 1e6) { // >1 MB; assume misbehaved client
+			req.connection.destroy();
+		}
+	});
+	req.on("end", function() {
+		callback(Buffer.concat(chunks));
+	});
 }
 
 function determinePath(uri) {

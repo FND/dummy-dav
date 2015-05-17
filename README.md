@@ -1,6 +1,6 @@
 DummyDAV: simplistic mock WebDAV implementation for development purposes
 
-supports `GET` (incl. ETags), `PUT` and `PROPFIND`
+supports `GET` and `PUT` (incl. ETags) as well as `PROPFIND`
 
 NB: This is not intended for serious use!
 
